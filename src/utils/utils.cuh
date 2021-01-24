@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdlib>
+#include <cstdio>
 
 #define gpuErrCheck(ans) {gpuAssert((ans), __FILE__, __LINE__); }
 
@@ -14,5 +14,5 @@ void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true);
     #define DEBUG_PRINT(fmt, args...)
 #endif
 
-float randFloat(float a, float b);
-int randInt(int a, int b);
+float randFloat(float min, float max);
+int randInt(int min, int max);
