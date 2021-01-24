@@ -13,7 +13,7 @@ class Tensor
 public:
     /* Constructors */
     Tensor(int sizeX, int sizeY = 1);
-    Tensor(float** hostData, int sizeX, int sizeY = 1);
+    Tensor(float* hostData, int sizeX, int sizeY = 1);
     Tensor(float* devData, int sizeX, int sizeY = 1);
     ~Tensor();
 
