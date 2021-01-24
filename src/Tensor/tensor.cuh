@@ -2,6 +2,8 @@
 
 #include <cstdio>
 
+#include "../utils/utils.cuh"
+
 enum Axis
 {
     X, 
