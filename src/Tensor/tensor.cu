@@ -15,19 +15,32 @@ Tensor::Tensor(int sizeX, int sizeY)
     }
 }
 
-Tensor::Tensor(float* hostData, int sizeX, int sizeY)
-
+Tensor::Tensor(float* data, int sizeX, int sizeY, DataType dataType)
+{
     m_sizeX = sizeX;
     m_sizeY = sizeY;
-
-    if (m_sizeX && m_sizeY)
+    if (dataType == HOST)
     {
-        cudaMalloc((void**)&m_devData, m_sizeX * m_sizeY * sizeof(float));
-        cudaMemcpy(m_devData, hostData, m_sizeX * m_sizeY * sizeof(float), cudeMemcpyHostToDevice);
-        //add error check
+        if (m_sizeX && m_sizeY)
+        {
+            cudaMalloc((void**)&m_devData, m_sizeX * m_sizeY * sizeof(float));
+            cudaMemcpy(m_devData, data, m_sizeX * m_sizeY * sizeof(float), cudaMemcpyHostToDevice);
+            //add error check
+        }
+        else
+        {
+            m_devData = NULL;
+        }
     }
     else
     {
-        m_devData = NULL;
+        m_devData = data;
+        m_sizeX = sizeX;
+        m_sizeY = sizeY;
     }
+}
+
+Tensor::~Tensor()
+{
+    cudaFree(m_devData);
 }
