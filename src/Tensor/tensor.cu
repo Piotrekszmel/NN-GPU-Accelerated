@@ -23,24 +23,74 @@ Tensor::Tensor(float* data, int sizeX, int sizeY, DataType dataType)
     {
         if (m_sizeX && m_sizeY)
         {
-            cudaMalloc((void**)&m_devData, m_sizeX * m_sizeY * sizeof(float));
-            cudaMemcpy(m_devData, data, m_sizeX * m_sizeY * sizeof(float), cudaMemcpyHostToDevice);
-            //add error check
+            gpuErrCheck(cudaMalloc((void**)&m_devData, m_sizeX * m_sizeY * sizeof(float)));
+            gpuErrCheck(cudaMemcpy(m_devData, data, m_sizeX * m_sizeY * sizeof(float), cudaMemcpyHostToDevice));
         }
         else
         {
             m_devData = NULL;
         }
     }
-    else
+    else if (dataType == DEVICE)
     {
         m_devData = data;
         m_sizeX = sizeX;
         m_sizeY = sizeY;
+    }
+    else
+    {
+        return -1;
     }
 }
 
 Tensor::~Tensor()
 {
     cudaFree(m_devData);
+}
+
+Tensor::getSize(Axis ax)
+{
+    if (ax == X)
+        return m_sizeX;
+    else if (ax == Y)
+        return m_sizeY;
+    else
+        return -1;
+}
+
+float* Tensor::getDeviceData()
+{
+    return m_devData;
+}
+
+float* Tensor::fetchDeviceData()
+{
+    float* hostData = new float[m_sizeX * m_sizeY * sizeof(float)];
+    gpuErrCheck(cudaMemcpy(hostData,
+                           m_devData,
+                           m_sizeX * m_sizeX * sizeof(float),
+                           cudaMemcpyDeviceToHost));
+    
+    return hostData;
+}
+
+void Tensor::add(const Tensor& tensor)
+{
+    if (m_sizeX != tensor.getSize(X) || m_sizeY != tensor.getSize(Y))
+    {
+        printf("Tensors have to have the same shapes.\nTensor1: [%d, %d]\nTensor2: [%d, %d]\n",
+               m_sizeX, m_sizeY, tensor.getSize(X), tensor.getSize(Y));
+        exit(1);
+    }
+}
+
+__global__ void add(float* a, float* b, int sizeX, int sizeY)
+{
+    int x_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int y_idx = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (row < sizeX && column < sizeY)
+    {
+        a[y_idx * sizeX + x_idx] += b[y_idx * sizeX + x_idx];
+    }
 }
