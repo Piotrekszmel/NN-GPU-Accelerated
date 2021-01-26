@@ -26,9 +26,9 @@ public:
 
     int getSize(Axis ax);
     float* getDeviceData();
-    float* fetchDeviceData();
+    void fetchDeviceData(float** ptr);
 
-    void add(const Tensor& tensor);
+    void add(Tensor& tensor);
     void subtract(const Tensor& tensor);
     void scale(const float factor);
     void mul(const Tensor& tensor, Tensor& output);

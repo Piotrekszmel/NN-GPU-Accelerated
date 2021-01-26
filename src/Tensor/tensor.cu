@@ -39,7 +39,7 @@ Tensor::Tensor(float* data, int sizeX, int sizeY, DataType dataType)
     }
     else
     {
-        return -1;
+        printf("Wrong DataType\n");
     }
 }
 
@@ -48,14 +48,13 @@ Tensor::~Tensor()
     cudaFree(m_devData);
 }
 
-Tensor::getSize(Axis ax)
+int Tensor::getSize(Axis ax)
 {
     if (ax == X)
         return m_sizeX;
     else if (ax == Y)
         return m_sizeY;
-    else
-        return -1;
+    return -1;
 }
 
 float* Tensor::getDeviceData()
@@ -63,18 +62,27 @@ float* Tensor::getDeviceData()
     return m_devData;
 }
 
-float* Tensor::fetchDeviceData()
+void Tensor::fetchDeviceData(float** hostData)
 {
-    float* hostData = new float[m_sizeX * m_sizeY * sizeof(float)];
+    *hostData = (float*)malloc(m_sizeX * m_sizeY * sizeof(float));
     gpuErrCheck(cudaMemcpy(hostData,
                            m_devData,
                            m_sizeX * m_sizeX * sizeof(float),
                            cudaMemcpyDeviceToHost));
-    
-    return hostData;
 }
 
-void Tensor::add(const Tensor& tensor)
+__global__ void add_kernel(float* a, float* b, int sizeX, int sizeY)
+{
+    int x_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int y_idx = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x_idx < sizeX && y_idx < sizeY)
+    {
+        a[y_idx * sizeX + x_idx] += b[y_idx * sizeX + x_idx];
+    }
+}
+
+void Tensor::add(Tensor& tensor)
 {
     if (m_sizeX != tensor.getSize(X) || m_sizeY != tensor.getSize(Y))
     {
@@ -82,15 +90,8 @@ void Tensor::add(const Tensor& tensor)
                m_sizeX, m_sizeY, tensor.getSize(X), tensor.getSize(Y));
         exit(1);
     }
-}
 
-__global__ void add(float* a, float* b, int sizeX, int sizeY)
-{
-    int x_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int y_idx = blockIdx.y * blockDim.y + threadIdx.y;
-
-    if (row < sizeX && column < sizeY)
-    {
-        a[y_idx * sizeX + x_idx] += b[y_idx * sizeX + x_idx];
-    }
+    dim3 threadsPerBlock(32, 32);
+    dim3 numBlocks(1,1,1);
+    add_kernel<<<numBlocks, threadsPerBlock>>>(getDeviceData(), tensor.getDeviceData(), m_sizeX, m_sizeY);
 }
