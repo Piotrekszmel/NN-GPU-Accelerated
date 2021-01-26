@@ -19,7 +19,7 @@ Tensor::Tensor(float* data, int sizeX, int sizeY, DataType dataType)
 {
     m_sizeX = sizeX;
     m_sizeY = sizeY;
-    if (dataType == HOST)
+    if (dataType == HostToDevice)
     {
         if (m_sizeX && m_sizeY)
         {
@@ -31,7 +31,7 @@ Tensor::Tensor(float* data, int sizeX, int sizeY, DataType dataType)
             m_devData = NULL;
         }
     }
-    else if (dataType == DEVICE)
+    else if (dataType == DeviceToHost)
     {
         m_devData = data;
         m_sizeX = sizeX;
@@ -65,10 +65,10 @@ float* Tensor::getDeviceData()
 void Tensor::fetchDeviceData(float** hostData)
 {
     *hostData = (float*)malloc(m_sizeX * m_sizeY * sizeof(float));
-    gpuErrCheck(cudaMemcpy(hostData,
+    gpuErrCheck(cudaMemcpy(*hostData,
                            m_devData,
-                           m_sizeX * m_sizeX * sizeof(float),
-                           cudaMemcpyDeviceToHost));
+                           m_sizeX * m_sizeY * sizeof(float),
+                           cudaMemcpyDeviceToHost));       
 }
 
 __global__ void add_kernel(float* a, float* b, int sizeX, int sizeY)

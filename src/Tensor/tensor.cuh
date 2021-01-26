@@ -6,8 +6,8 @@
 
 enum DataType 
 {
-    HOST,
-    DEVICE
+    HostToDevice,
+    DeviceToHost
 };
 
 enum Axis
@@ -21,7 +21,7 @@ class Tensor
 public:
     /* Constructors */
     Tensor(int sizeX, int sizeY = 1);
-    Tensor(float* data, int sizeX, int sizeY = 1, DataType dataType = HOST);
+    Tensor(float* data, int sizeX, int sizeY = 1, DataType dataType = HostToDevice);
     ~Tensor();
 
     int getSize(Axis ax);
