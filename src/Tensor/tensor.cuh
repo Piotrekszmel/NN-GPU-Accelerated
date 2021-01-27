@@ -24,15 +24,15 @@ public:
     Tensor(float* data, int sizeX, int sizeY = 1, DataType dataType = HostToDevice);
     ~Tensor();
 
-    int getSize(Axis ax);
-    float* getDeviceData();
+    int getSize(Axis ax) const;
+    float* getDeviceData(); 
     void fetchDeviceData(float** ptr);
 
     void add(Tensor& tensor);
-    void subtract(const Tensor& tensor);
+    void subtract(Tensor& tensor);
     void scale(const float factor);
-    void mul(const Tensor& tensor, Tensor& output);
-    void mulTransposition(const Tensor& tensor, Tensor& output);
+    void mul(Tensor& tensor, Tensor& output);
+    void mulTransposition(Tensor& tensor, Tensor& output);
     void meanX(Tensor& output);
 
     void debug();

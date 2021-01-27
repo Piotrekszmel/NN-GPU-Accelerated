@@ -1,4 +1,7 @@
 #include "tensor.cuh"
+#include "../config/config.cuh"
+
+/* CONSTRUCTORS */ 
 
 Tensor::Tensor(int sizeX, int sizeY)
 {
@@ -48,7 +51,7 @@ Tensor::~Tensor()
     cudaFree(m_devData);
 }
 
-int Tensor::getSize(Axis ax)
+int Tensor::getSize(Axis ax) const
 {
     if (ax == X)
         return m_sizeX;
@@ -71,7 +74,9 @@ void Tensor::fetchDeviceData(float** hostData)
                            cudaMemcpyDeviceToHost));       
 }
 
-__global__ void add_kernel(float* a, float* b, int sizeX, int sizeY)
+/* KERNELS */ 
+
+__global__ void addKernel(float* a, float* b, int sizeX, int sizeY)
 {
     int x_idx = blockIdx.x * blockDim.x + threadIdx.x;
     int y_idx = blockIdx.y * blockDim.y + threadIdx.y;
@@ -79,6 +84,17 @@ __global__ void add_kernel(float* a, float* b, int sizeX, int sizeY)
     if (x_idx < sizeX && y_idx < sizeY)
     {
         a[y_idx * sizeX + x_idx] += b[y_idx * sizeX + x_idx];
+    }
+}
+
+__global__ void subtractKernel(float* a, float* b, int sizeX, int sizeY)
+{
+    int x_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int y_idx = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x_idx < sizeX && y_idx < sizeY)
+    {
+        a[y_idx * sizeX + x_idx] -= b[y_idx * sizeX + x_idx];
     }
 }
 
@@ -91,7 +107,21 @@ void Tensor::add(Tensor& tensor)
         exit(1);
     }
 
-    dim3 threadsPerBlock(32, 32);
-    dim3 numBlocks(1,1,1);
-    add_kernel<<<numBlocks, threadsPerBlock>>>(getDeviceData(), tensor.getDeviceData(), m_sizeX, m_sizeY);
+    dim3 blockSize(Config::addBlockSize, Config::addBlockSize, 1);
+    dim3 gridSize((m_sizeX + blockSize.x - 1) / blockSize.x, (m_sizeY + blockSize.y - 1) / blockSize.y);
+    addKernel<<<gridSize, blockSize>>>(getDeviceData(), tensor.getDeviceData(), m_sizeX, m_sizeY);
+}
+
+void Tensor::subtract(Tensor& tensor)
+{
+    if (m_sizeX != tensor.getSize(X) || m_sizeY != tensor.getSize(Y))
+    {
+        printf("Tensors have to have the same shapes.\nTensor1: [%d, %d]\nTensor2: [%d, %d]\n",
+               m_sizeX, m_sizeY, tensor.getSize(X), tensor.getSize(Y));
+        exit(1);
+    }
+
+    dim3 blockSize(Config::subtractBlockSize, Config::subtractBlockSize, 1);
+    dim3 gridSize((m_sizeX + blockSize.x - 1) / blockSize.x, (m_sizeY + blockSize.y - 1) / blockSize.y);
+    subtractKernel<<<gridSize, blockSize>>>(getDeviceData(), tensor.getDeviceData(), m_sizeX, m_sizeY);
 }
