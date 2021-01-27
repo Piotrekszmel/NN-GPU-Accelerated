@@ -13,7 +13,7 @@ private:
 public:
     /* CUDA CONFIGURATION */
     static int addBlockSize;
-    static int ssubtractBlockSize;
+    static int subtractBlockSize;
     static int scaleBlockSize;
     static int multiplyBlockSize;
     static int meanBlockSize;
@@ -23,7 +23,7 @@ public:
     /* NEURAL NETWORK CONFIGURATION */
     static int epochs;
     static int batchSize;
-    static int learningRate;
+    static float learningRate;
     static int reluBlockSize;    
     static int crossEntropyMetricBlockSize;
     static int crossEntropyBlockSize;
@@ -31,4 +31,4 @@ public:
     static void printConfig();
     static void printCudaConfig();
     static void printNetConfig();
-}
+};
