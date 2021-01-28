@@ -6,7 +6,7 @@ int Config::scaleBlockSize = 8;
 int Config::multiplyBlockSize = 8;
 int Config::meanBlockSize = 8;
 int Config::sharedMemory = 0;
-int Config::blockNumber = -1;
+int Config::numBlocks = -1;
 
 int Config::epochs = 100;
 int Config::batchSize = 512;
@@ -47,7 +47,7 @@ void Config::printConfig()
     printf(" MultiplyBlockSize: %d\n", Config::multiplyBlockSize);
     printf(" MeanBlockSize: %d\n", Config::meanBlockSize);
     printf(" SharedMemory: %d\n", Config::sharedMemory);
-    printf(" BlockNumber: %d\n", Config::blockNumber);
+    printf(" numBlocks: %d\n", Config::numBlocks);
     printf("=====================================\n");
     printf("            Neural Network\n");
     printf("=====================================\n");
@@ -82,7 +82,7 @@ void Config::printCudaConfig()
     printf(" MultiplyBlockSize: %d\n", Config::multiplyBlockSize);
     printf(" MeanBlockSize: %d\n", Config::meanBlockSize);
     printf(" SharedMemory: %d\n", Config::sharedMemory);
-    printf(" BlockNumber: %d\n", Config::blockNumber);
+    printf(" numBlocks: %d\n", Config::numBlocks);
 
     printf("=====================================\n");
     printf("\n");

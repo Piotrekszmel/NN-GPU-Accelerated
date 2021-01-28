@@ -18,7 +18,7 @@ public:
     static int multiplyBlockSize;
     static int meanBlockSize;
     static int sharedMemory;
-    static int blockNumber;
+    static int numBlocks;
 
     /* NEURAL NETWORK CONFIGURATION */
     static int epochs;
