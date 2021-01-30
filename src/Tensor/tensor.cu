@@ -152,7 +152,6 @@ __global__ void multiplySharedMemoryKernel(float* A, float* B,
     int x_idx = blockIdx.x * blockDim.x + threadIdx.x;
     int y_idx = blockIdx.x * blockDim.x + threadIdx.y;
     int chunks = (a_size_x + blockDim.x - 1) / blockDim.x;
-
     if (x_idx < b_size_x && y_idx < a_size_y)
     {
         extern __shared__ float array[];
@@ -189,6 +188,92 @@ __global__ void multiplySharedMemoryKernel(float* A, float* B,
         C[y_idx * b_size_x + x_idx] = sum;
     }
 
+}
+
+__global__ void multiplyByTranposeKernel(float* A, float* B,
+                                         int a_size_x, int a_size_y,
+                                         int b_size_x, int b_size_y,
+                                         int fields_per_block_x, 
+                                         int fields_per_block_y,
+                                         int fields_per_thread_x,
+                                         int fields_per_thread_y,
+                                         float* C)
+{
+    int block_x_start = blockIdx.x * fields_per_block_x;
+    int block_y_start = blockDim.y * fields_per_block_y;
+    int block_x_end = min(b_size_y, block_x_start + fields_per_block_x);
+    int block_y_end = min(a_size_y, block_y_start + fields_per_block_y);
+    int thread_x_start = threadIdx.x * fields_per_thread_x;
+    int thread_y_start = threadIdx.y * fields_per_thread_y;
+    int thread_x_end = thread_x_start + fields_per_thread_x;
+    int thread_y_end = thread_y_start + fields_per_thread_y;
+    int start_idx_x = block_x_start + thread_x_start;
+    int start_idx_y = block_y_start + thread_y_start;
+    int end_idx_x = min(b_size_y, block_x_start + thread_x_end);
+    int end_idx_y = min(a_size_y, block_y_start + thread_y_end);
+
+    for (int y = start_idx_y; y < end_idx_y; y++)
+    {
+        for (int x = start_idx_x; x < end_idx_x; x++)
+        {
+            float sum = 0.0;
+            for (int i = 0; i < a_size_x; i++)
+            {
+                sum += A[ y * a_size_x + i] * B[x * b_size_x + i];
+            }
+            C[y * b_size_y + x] = sum;
+        }
+    }
+}
+
+__global__ void multiplyByTranposeSharedMemoryKernel(float* A, float* B,
+                                                     int a_size_x, int a_size_y,
+                                                     int b_size_x, int b_size_y,
+                                                     float* C)
+{
+    int x_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int y_idx = blockIdx.y * blockDim.y + threadIdx.y;
+    int chunks = (a_size_x + blockDim.x - 1 / blockDim.x);
+
+    if (x_idx < a_size_y && y_idx < b_size_y)
+    {
+        extern __shared__ float array[];
+        float* s_A = (float*)array;
+        float* s_B = (float*)&array[blockDim.x * blockDim.y];
+        float sum = 0.0f;
+
+        for (int i = 0; i < chunks; i++)
+        {
+            if (i * blockDim.x + threadIdx.x < a_size_x 
+                && blockIdx.y * blockDim.y + threadIdx.y < a_size_y)
+            {
+                s_A[threadIdx.y * blockDim.x + threadIdx.x] 
+                    = A[(blockIdx.y * blockDim.y + threadIdx.y) * a_size_x + i * blockDim.x + threadIdx.x];
+            }
+            else
+            {
+                s_A[threadIdx.y * blockDim.x + threadIdx.x] = 0.0f;
+            }
+            if (i * blockDim.x + threadIdx.x < b_size_x 
+                && blockIdx.y * blockDim.y + threadIdx.y < b_size_y)
+            {
+                s_B[threadIdx.y * blockDim.x + threadIdx.x] 
+                    = B[(blockIdx.y * blockDim.y + threadIdx.y) * b_size_x + i * blockDim.x + threadIdx.x];
+            }
+            else
+            {
+                s_B[threadIdx.y * blockDim.x + threadIdx.x] = 0.0f;
+            }
+
+            __syncthreads();
+            for (int j = 0; j < blockDim.x; j++)
+            {
+                sum += s_A[threadIdx.y * blockDim.x + j] * s_B[threadIdx.y * blockDim.x + j];
+            }
+            __syncthreads();
+        }
+        C[y_idx * b_size_y + x_idx] = sum;
+    }
 }
 
 /* OPERATIONS */
@@ -241,7 +326,6 @@ void Tensor::mul(Tensor& tensor, Tensor& output)
         dim3 blockSize(Config::multiplyBlockSize, Config::multiplyBlockSize, 1);
         dim3 gridSize((m_size_x + blockSize.x - 1) / blockSize.x, (m_size_y + blockSize.y - 1) / blockSize.y, 1);
         int sharedMemory = 2 * blockSize.x * blockSize.y * sizeof(float);
-
         multiplySharedMemoryKernel<<<gridSize, blockSize, sharedMemory>>>(getDeviceData(),
                                    tensor.getDeviceData(),
                                    getSize(X),
@@ -266,7 +350,6 @@ void Tensor::mul(Tensor& tensor, Tensor& output)
 
         dim3 gridSize(num_blocks_x, num_blocks_y, 1);
         dim3 blockSize(num_threads, num_threads, 1);
-
         multiplyKernel<<<gridSize, blockSize>>>(getDeviceData(), 
                        tensor.getDeviceData(),
                        getSize(X), 
@@ -278,5 +361,30 @@ void Tensor::mul(Tensor& tensor, Tensor& output)
                        fields_per_thread_x,
                        fields_per_thread_y,
                        output.getDeviceData());
+    }
+}
+
+void Tensor::transposeMul(Tensor& tensor, Tensor& output)
+{
+    if (m_size_x != tensor.getSize(X))
+    {
+        printf("Second dim of the first tensor has to be equal to second dim of the second tensor. Got: "
+              "[%d, %d], [%d, %d]\n", m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
+        exit(1);
+    }
+
+    if (Config::sharedMemory == 1)
+    {
+        dim3 blockSize(Config::multiplyBlockSize, Config::multiplyBlockSize, 1);
+        dim3 gridSize((m_size_x + blockSize.x - 1) / blockSize.x, (m_size_y + blockSize.y - 1) / blockSize.y, 1);
+        int sharedMemory = 2 * blockSize.x * blockSize.y * sizeof(float);
+
+        multiplySharedMemoryKernel<<<gridSize, blockSize, sharedMemory>>>(getDeviceData(),
+                                   tensor.getDeviceData(),
+                                   getSize(X),
+                                   getSize(Y),
+                                   tensor.getSize(X),
+                                   tensor.getSize(Y),
+                                   output.getDeviceData());
     }
 }
