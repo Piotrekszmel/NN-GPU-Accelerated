@@ -276,6 +276,23 @@ __global__ void multiplyByTranposeSharedMemoryKernel(float* A, float* B,
     }
 }
 
+__global__ void transposeMultiplyKernel(float* A, float* B,
+    int a_size_x, int a_size_y,
+    int b_size_x, int b_size_y,
+    int fields_per_block_x, 
+    int fields_per_block_y,
+    int fields_per_thread_x,
+    int fields_per_thread_y,
+    float* C)
+{
+
+}
+
+__global__ void tranposeMultiplySharedMemoryKernel(float* A, float* B,
+    int a_size_x, int a_size_y,
+    int b_size_x, int b_size_y,
+    float* C)
+
 /* OPERATIONS */
 void Tensor::add(Tensor& tensor)
 {
@@ -316,7 +333,7 @@ void Tensor::mul(Tensor& tensor, Tensor& output)
 {
     if (m_size_x != tensor.getSize(Y))
     {
-        printf("Second dim of the first tensor has to be equal to first dim of the second tensor. Got: "
+        printf("first dim of the first tensor has to be equal to the second dim of the second tensor. Got: "
               "[%d, %d], [%d, %d]\n", m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
         exit(1);
     }
@@ -364,11 +381,11 @@ void Tensor::mul(Tensor& tensor, Tensor& output)
     }
 }
 
-void Tensor::transposeMul(Tensor& tensor, Tensor& output)
+void Tensor::mulTranspose(Tensor& tensor, Tensor& output)
 {
     if (m_size_x != tensor.getSize(X))
     {
-        printf("Second dim of the first tensor has to be equal to second dim of the second tensor. Got: "
+        printf("first dim of the first tensor has to be equal to the first dim of the second tensor. Got: "
               "[%d, %d], [%d, %d]\n", m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
         exit(1);
     }
@@ -376,15 +393,96 @@ void Tensor::transposeMul(Tensor& tensor, Tensor& output)
     if (Config::sharedMemory == 1)
     {
         dim3 blockSize(Config::multiplyBlockSize, Config::multiplyBlockSize, 1);
-        dim3 gridSize((m_size_x + blockSize.x - 1) / blockSize.x, (m_size_y + blockSize.y - 1) / blockSize.y, 1);
+        dim3 gridSize((m_size_y + blockSize.x - 1) / blockSize.x, (tensor.getSize(y) + blockSize.y - 1) / blockSize.y, 1);
         int sharedMemory = 2 * blockSize.x * blockSize.y * sizeof(float);
 
-        multiplySharedMemoryKernel<<<gridSize, blockSize, sharedMemory>>>(getDeviceData(),
+        multiplyByTranposeSharedMemoryKernel<<<gridSize, blockSize, sharedMemory>>>(getDeviceData(),
                                    tensor.getDeviceData(),
                                    getSize(X),
                                    getSize(Y),
                                    tensor.getSize(X),
                                    tensor.getSize(Y),
                                    output.getDeviceData());
+    }
+    else
+    {
+        int num_threads = Config::multiplyBlockSize;
+        int num_blocks_x = Config::numBlocks == -1
+                            ? (tensor.getSize(Y) + num_threads - 1) / num_threads
+                            : Config::numBlocks;
+        int num_blocks_y = Config::numBlocks == -1
+        ? (m_size_y + num_threads - 1) / num_threads
+        : Config::numBlocks;   
+        int fields_per_block_x = max(1, (tensor.getSize(Y) + num_blocks_x - 1) / num_blocks_x);
+        int fields_per_block_y = max(1, (getSize(Y) + num_blocks_y - 1) / num_blocks_y);
+        int fields_per_thread_x = max(1, (fields_per_block_x + num_threads - 1) / num_threads);
+        int fields_per_thread_y = max(1, (fields_per_block_y + num_threads - 1) / num_threads);
+
+        dim3 gridSize(num_blocks_x, num_blocks_y, 1);
+        dim3 blockSize(num_threads, num_threads, 1);
+        multiplyByTranposeKernel<<<gridSize, blockSize>>>(getDeviceData(), 
+                       tensor.getDeviceData(),
+                       getSize(X), 
+                       getSize(Y),
+                       tensor.getSize(X), 
+                       tensor.getSize(Y),
+                       fields_per_block_x,
+                       fields_per_block_y,
+                       fields_per_thread_x,
+                       fields_per_thread_y,
+                       output.getDeviceData());
+    }
+}
+
+void Tensor::transposeMul(Tensor& tensor, Tensor& output)
+{
+    if (m_size_y != tensor.getSize(Y))
+    {
+        printf("second dim of the first tensor has to be equal to the second dim of the second tensor. Got: "
+              "[%d, %d], [%d, %d]\n", m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
+        exit(1);
+    }
+
+    if (Config::sharedMemory == 1)
+    {
+        dim3 blockSize(Config::multiplyBlockSize, Config::multiplyBlockSize, 1);
+        dim3 gridSize((m_size_x + blockSize.x - 1) / blockSize.x, (tensor.getSize(X) + blockSize.y - 1) / blockSize.y, 1);
+        int sharedMemory = 2 * blockSize.x * blockSize.y * sizeof(float);
+
+       tranposeMultiplySharedMemoryKernel<<<gridSize, blockSize, sharedMemory>>>(getDeviceData(),
+                                   tensor.getDeviceData(),
+                                   getSize(X),
+                                   getSize(Y),
+                                   tensor.getSize(X),
+                                   tensor.getSize(Y),
+                                   output.getDeviceData());
+    }
+    else
+    {
+        int num_threads = Config::multiplyBlockSize;
+        int num_blocks_x = Config::numBlocks == -1
+                            ? (tensor.getSize(X) + num_threads - 1) / num_threads
+                            : Config::numBlocks;
+        int num_blocks_y = Config::numBlocks == -1
+        ? (m_size_x + num_threads - 1) / num_threads
+        : Config::numBlocks;   
+        int fields_per_block_x = max(1, (tensor.getSize(X) + num_blocks_x - 1) / num_blocks_x);
+        int fields_per_block_y = max(1, (getSize(X) + num_blocks_y - 1) / num_blocks_y);
+        int fields_per_thread_x = max(1, (fields_per_block_x + num_threads - 1) / num_threads);
+        int fields_per_thread_y = max(1, (fields_per_block_y + num_threads - 1) / num_threads);
+
+        dim3 gridSize(num_blocks_x, num_blocks_y, 1);
+        dim3 blockSize(num_threads, num_threads, 1);
+        transposeMultiplyKernel<<<gridSize, blockSize>>>(getDeviceData(), 
+                       tensor.getDeviceData(),
+                       getSize(X), 
+                       getSize(Y),
+                       tensor.getSize(X), 
+                       tensor.getSize(Y),
+                       fields_per_block_x,
+                       fields_per_block_y,
+                       fields_per_thread_x,
+                       fields_per_thread_y,
+                       output.getDeviceData());
     }
 }

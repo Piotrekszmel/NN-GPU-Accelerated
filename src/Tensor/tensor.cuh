@@ -32,10 +32,9 @@ public:
     void subtract(Tensor& tensor);
     void scale(float factor);
     void mul(Tensor& tensor, Tensor& output);
-    void mulByTranspose(Tensor& tensor, Tensor& output);
+    void mulTranspose(Tensor& tensor, Tensor& output);
     void transposeMul(Tensor& tensor, Tensor& output);
     void meanX(Tensor& output);
-    void multSharedMem(Tensor& tensor, Tensor& output);
     void debug();
 
 private: 
