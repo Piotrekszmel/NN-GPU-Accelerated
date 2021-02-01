@@ -200,7 +200,7 @@ __global__ void multiplyByTranposeKernel(float* A, float* B,
                                          float* C)
 {
     int block_x_start = blockIdx.x * fields_per_block_x;
-    int block_y_start = blockDim.y * fields_per_block_y;
+    int block_y_start = blockIdx.y * fields_per_block_y;
     int block_x_end = min(b_size_y, block_x_start + fields_per_block_x);
     int block_y_end = min(a_size_y, block_y_start + fields_per_block_y);
     int thread_x_start = threadIdx.x * fields_per_thread_x;
@@ -209,8 +209,8 @@ __global__ void multiplyByTranposeKernel(float* A, float* B,
     int thread_y_end = thread_y_start + fields_per_thread_y;
     int start_idx_x = block_x_start + thread_x_start;
     int start_idx_y = block_y_start + thread_y_start;
-    int end_idx_x = min(b_size_y, block_x_start + thread_x_end);
-    int end_idx_y = min(a_size_y, block_y_start + thread_y_end);
+    int end_idx_x = min(block_x_end, block_x_start + thread_x_end);
+    int end_idx_y = min(block_y_end, block_y_start + thread_y_end);
 
     for (int y = start_idx_y; y < end_idx_y; y++)
     {
@@ -219,7 +219,7 @@ __global__ void multiplyByTranposeKernel(float* A, float* B,
             float sum = 0.0;
             for (int i = 0; i < a_size_x; i++)
             {
-                sum += A[ y * a_size_x + i] * B[x * b_size_x + i];
+                sum += A[y * a_size_x + i] * B[x * b_size_x + i];
             }
             C[y * b_size_y + x] = sum;
         }
@@ -235,7 +235,7 @@ __global__ void multiplyByTranposeSharedMemoryKernel(float* A, float* B,
     int y_idx = blockIdx.y * blockDim.y + threadIdx.y;
     int chunks = (a_size_x + blockDim.x - 1 / blockDim.x);
 
-    if (x_idx < a_size_y && y_idx < b_size_y)
+    if (x_idx < b_size_y && y_idx < a_size_y)
     {
         extern __shared__ float array[];
         float* s_A = (float*)array;
@@ -255,10 +255,10 @@ __global__ void multiplyByTranposeSharedMemoryKernel(float* A, float* B,
                 s_A[threadIdx.y * blockDim.x + threadIdx.x] = 0.0f;
             }
             if (i * blockDim.x + threadIdx.x < b_size_x 
-                && blockIdx.y * blockDim.y + threadIdx.y < b_size_y)
+                && blockIdx.x * blockDim.y + threadIdx.y < b_size_y)
             {
                 s_B[threadIdx.y * blockDim.x + threadIdx.x] 
-                    = B[(blockIdx.y * blockDim.y + threadIdx.y) * b_size_x + i * blockDim.x + threadIdx.x];
+                    = B[(blockIdx.x * blockDim.y + threadIdx.y) * b_size_x + i * blockDim.x + threadIdx.x];
             }
             else
             {
@@ -268,7 +268,7 @@ __global__ void multiplyByTranposeSharedMemoryKernel(float* A, float* B,
             __syncthreads();
             for (int j = 0; j < blockDim.x; j++)
             {
-                sum += s_A[threadIdx.y * blockDim.x + j] * s_B[threadIdx.y * blockDim.x + j];
+                sum += s_A[threadIdx.y * blockDim.x + j] * s_B[threadIdx.x * blockDim.x + j];
             }
             __syncthreads();
         }
@@ -292,6 +292,10 @@ __global__ void tranposeMultiplySharedMemoryKernel(float* A, float* B,
     int a_size_x, int a_size_y,
     int b_size_x, int b_size_y,
     float* C)
+{
+
+
+}
 
 /* OPERATIONS */
 void Tensor::add(Tensor& tensor)
@@ -345,8 +349,8 @@ void Tensor::mul(Tensor& tensor, Tensor& output)
         int sharedMemory = 2 * blockSize.x * blockSize.y * sizeof(float);
         multiplySharedMemoryKernel<<<gridSize, blockSize, sharedMemory>>>(getDeviceData(),
                                    tensor.getDeviceData(),
-                                   getSize(X),
-                                   getSize(Y),
+                                  m_size_x,
+                                  m_size_y,
                                    tensor.getSize(X),
                                    tensor.getSize(Y),
                                    output.getDeviceData());
@@ -369,8 +373,8 @@ void Tensor::mul(Tensor& tensor, Tensor& output)
         dim3 blockSize(num_threads, num_threads, 1);
         multiplyKernel<<<gridSize, blockSize>>>(getDeviceData(), 
                        tensor.getDeviceData(),
-                       getSize(X), 
-                       getSize(Y),
+                      m_size_x, 
+                      m_size_y,
                        tensor.getSize(X), 
                        tensor.getSize(Y),
                        fields_per_block_x,
@@ -389,17 +393,23 @@ void Tensor::mulTranspose(Tensor& tensor, Tensor& output)
               "[%d, %d], [%d, %d]\n", m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
         exit(1);
     }
+    if(Config::sharedMemory == 1 && m_size_x > m_size_y && tensor.getSize(X) > tensor.getSize(Y))
+    {
+        printf("mulTranspose does not support shared memory if first dim is greater than second dim "
+               "Got: Tensor1: [%d, %d],  Tensor2: [%d, %d].\nGlobal memory will be used!\n",
+                m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
+    }
 
-    if (Config::sharedMemory == 1)
+    if (Config::sharedMemory == 1 && m_size_x <= m_size_y && tensor.getSize(X) <= tensor.getSize(Y))
     {
         dim3 blockSize(Config::multiplyBlockSize, Config::multiplyBlockSize, 1);
-        dim3 gridSize((m_size_y + blockSize.x - 1) / blockSize.x, (tensor.getSize(y) + blockSize.y - 1) / blockSize.y, 1);
+        dim3 gridSize((tensor.getSize(Y) + blockSize.x - 1) / blockSize.x, (m_size_y + blockSize.y - 1) / blockSize.y, 1);
         int sharedMemory = 2 * blockSize.x * blockSize.y * sizeof(float);
 
         multiplyByTranposeSharedMemoryKernel<<<gridSize, blockSize, sharedMemory>>>(getDeviceData(),
                                    tensor.getDeviceData(),
-                                   getSize(X),
-                                   getSize(Y),
+                                  m_size_x,
+                                  m_size_y,
                                    tensor.getSize(X),
                                    tensor.getSize(Y),
                                    output.getDeviceData());
@@ -414,7 +424,7 @@ void Tensor::mulTranspose(Tensor& tensor, Tensor& output)
         ? (m_size_y + num_threads - 1) / num_threads
         : Config::numBlocks;   
         int fields_per_block_x = max(1, (tensor.getSize(Y) + num_blocks_x - 1) / num_blocks_x);
-        int fields_per_block_y = max(1, (getSize(Y) + num_blocks_y - 1) / num_blocks_y);
+        int fields_per_block_y = max(1, (m_size_y + num_blocks_y - 1) / num_blocks_y);
         int fields_per_thread_x = max(1, (fields_per_block_x + num_threads - 1) / num_threads);
         int fields_per_thread_y = max(1, (fields_per_block_y + num_threads - 1) / num_threads);
 
@@ -422,8 +432,8 @@ void Tensor::mulTranspose(Tensor& tensor, Tensor& output)
         dim3 blockSize(num_threads, num_threads, 1);
         multiplyByTranposeKernel<<<gridSize, blockSize>>>(getDeviceData(), 
                        tensor.getDeviceData(),
-                       getSize(X), 
-                       getSize(Y),
+                       m_size_x, 
+                       m_size_y,
                        tensor.getSize(X), 
                        tensor.getSize(Y),
                        fields_per_block_x,
@@ -451,8 +461,8 @@ void Tensor::transposeMul(Tensor& tensor, Tensor& output)
 
        tranposeMultiplySharedMemoryKernel<<<gridSize, blockSize, sharedMemory>>>(getDeviceData(),
                                    tensor.getDeviceData(),
-                                   getSize(X),
-                                   getSize(Y),
+                                   m_size_x,
+                                   m_size_y,
                                    tensor.getSize(X),
                                    tensor.getSize(Y),
                                    output.getDeviceData());
@@ -475,8 +485,8 @@ void Tensor::transposeMul(Tensor& tensor, Tensor& output)
         dim3 blockSize(num_threads, num_threads, 1);
         transposeMultiplyKernel<<<gridSize, blockSize>>>(getDeviceData(), 
                        tensor.getDeviceData(),
-                       getSize(X), 
-                       getSize(Y),
+                      m_size_x, 
+                      m_size_y,
                        tensor.getSize(X), 
                        tensor.getSize(Y),
                        fields_per_block_x,
