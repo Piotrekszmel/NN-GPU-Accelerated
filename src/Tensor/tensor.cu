@@ -363,6 +363,22 @@ __global__ void tranposeMultiplySharedMemoryKernel(float* A, float* B,
     }
 }
 
+__global__ void meanXKernel(float* A, int size_x, int size_y, float* B)
+{
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if (col < size_x)
+    {
+        float sum = 0.0;
+        for (int i = 0; i < size_y; i++)
+        {
+            sum += A[i * size_x + col];
+        }
+
+        B[col] = sum / size_y;
+    }
+}
+
 /* OPERATIONS */
 void Tensor::add(Tensor& tensor)
 {
@@ -568,4 +584,14 @@ void Tensor::transposeMul(Tensor& tensor, Tensor& output)
                        fields_per_thread_y,
                        output.getDeviceData());
     }
+}
+
+void Tensor::meanX(Tensor& output)
+{
+    int blockSize = Config::meanBlockSize;
+    int gridSize = (m_size_x + blockSize - 1) / blockSize;
+    meanXKernel<<<gridSize, blockSize>>>(getDeviceData(),
+                                         m_size_x,
+                                         m_size_y,
+                                         output.getDeviceData());
 }
