@@ -59,6 +59,20 @@ int Tensor::getSize(Axis ax) const
     return -1;
 }
 
+void Tensor::setSize(Axis ax, int size)
+{
+    if (ax == X)
+        m_size_x = size;
+    else if (ax == Y)
+        m_size_y = size;
+    else
+    {
+        printf("Wrong axis provided!\n");
+        exit(1);
+    }
+
+}
+
 float* Tensor::getDeviceData()
 {
     return m_devData;

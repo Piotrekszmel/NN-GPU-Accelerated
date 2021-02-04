@@ -20,11 +20,13 @@ class Tensor
 {
 public:
     /* Constructors */
+    Tensor() = default;
     Tensor(int size_x, int size_y = 1);
     Tensor(float* data, int size_x, int size_y = 1, DataType dataType = HostToDevice);
     ~Tensor();
 
     int getSize(Axis ax) const;
+    void setSize(Axis ax, int size);
     float* getDeviceData(); 
     void fetchDeviceData(float** ptr);
 
