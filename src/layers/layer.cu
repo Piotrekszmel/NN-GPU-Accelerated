@@ -1,21 +1,21 @@
 #include "layer.cuh"
 
-Tensor Layer::getWeights()
+Tensor* Layer::getWeights()
 {
-    return m_weights;
+    return this->m_weights;
 }
 
-Tensor Layer::getBias()
+Tensor* Layer::getBias()
 {
-    return m_bias;
+    return this->m_bias;
 }
 
-Tensor Layer::getDeltaWeights()
+Tensor* Layer::getDeltaWeights()
 {
-    return m_delta_weights;
+    return this->m_delta_weights;
 }
 
-Tensor Layer::getDeltaBias()
+Tensor* Layer::getDeltaBias()
 {
-    return m_delta_bias;
+    return this->m_delta_bias;
 }

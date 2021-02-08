@@ -9,17 +9,17 @@ class Layer
 {
 public:
     Layer() = default;
-    Tensor getWeights();
-    Tensor getBias();
-    Tensor getDeltaWeights();
-    Tensor getDeltaBias();
+    Tensor* getWeights();
+    Tensor* getBias();
+    Tensor* getDeltaWeights();
+    Tensor* getDeltaBias();
 
-    //virtual Tensor forward(Tensor& data) = 0;
-    //virtual Tensor backward(Tensor& gradients) = 0;
+    virtual Tensor* forward(Tensor* data) = 0;
+    //virtual Tensor* backward(Tensor gradients) = 0;
 
 protected:
-    Tensor m_weights;
-    Tensor m_bias;
-    Tensor m_delta_weights;
-    Tensor m_delta_bias;
+    Tensor* m_weights;
+    Tensor* m_bias;
+    Tensor* m_delta_weights;
+    Tensor* m_delta_bias;
 };

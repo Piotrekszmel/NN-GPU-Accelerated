@@ -394,32 +394,32 @@ __global__ void meanXKernel(float* A, int size_x, int size_y, float* B)
 }
 
 /* OPERATIONS */
-void Tensor::add(Tensor& tensor)
+void Tensor::add(Tensor* tensor)
 {
-    if (m_size_x != tensor.getSize(X) || m_size_y != tensor.getSize(Y))
+    if (m_size_x != tensor->getSize(X) || m_size_y != tensor->getSize(Y))
     {
         printf("Tensors have to have the same shapes.\nTensor1: [%d, %d]\nTensor2: [%d, %d]\n",
-               m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
+               m_size_x, m_size_y, tensor->getSize(X), tensor->getSize(Y));
         exit(1);
     }
 
     dim3 blockSize(Config::addBlockSize, Config::addBlockSize, 1);
     dim3 gridSize((m_size_x + blockSize.x - 1) / blockSize.x, (m_size_y + blockSize.y - 1) / blockSize.y, 1);
-    addKernel<<<gridSize, blockSize>>>(getDeviceData(), tensor.getDeviceData(), m_size_x, m_size_y);
+    addKernel<<<gridSize, blockSize>>>(getDeviceData(), tensor->getDeviceData(), m_size_x, m_size_y);
 }
 
-void Tensor::subtract(Tensor& tensor)
+void Tensor::subtract(Tensor* tensor)
 {
-    if (m_size_x != tensor.getSize(X) || m_size_y != tensor.getSize(Y))
+    if (m_size_x != tensor->getSize(X) || m_size_y != tensor->getSize(Y))
     {
         printf("Tensors have to have the same shapes.\nTensor1: [%d, %d]\nTensor2: [%d, %d]\n",
-               m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
+               m_size_x, m_size_y, tensor->getSize(X), tensor->getSize(Y));
         exit(1);
     }
 
     dim3 blockSize(Config::subtractBlockSize, Config::subtractBlockSize, 1);
     dim3 gridSize((m_size_x + blockSize.x - 1) / blockSize.x, (m_size_y + blockSize.y - 1) / blockSize.y, 1);
-    subtractKernel<<<gridSize, blockSize>>>(getDeviceData(), tensor.getDeviceData(), m_size_x, m_size_y);
+    subtractKernel<<<gridSize, blockSize>>>(getDeviceData(), tensor->getDeviceData(), m_size_x, m_size_y);
 }
 
 void Tensor::scale(float factor)
@@ -429,12 +429,12 @@ void Tensor::scale(float factor)
     scaleKernel<<<gridSize, blockSize>>>(getDeviceData(), factor, m_size_x, m_size_y);
 }
 
-void Tensor::mul(Tensor& tensor, Tensor& output)
+void Tensor::mul(Tensor* tensor, Tensor* output)
 {
-    if (m_size_x != tensor.getSize(Y))
+    if (m_size_x != tensor->getSize(Y))
     {
-        printf("first dim of the first tensor has to be equal to the second dim of the second tensor. Got: "
-              "[%d, %d], [%d, %d]\n", m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
+        printf("first dim of the first tensor has to be equal to the second dim of the second tensor-> Got: "
+              "[%d, %d], [%d, %d]\n", m_size_x, m_size_y, tensor->getSize(X), tensor->getSize(Y));
         exit(1);
     }
 
@@ -444,23 +444,23 @@ void Tensor::mul(Tensor& tensor, Tensor& output)
         dim3 gridSize((m_size_x + blockSize.x - 1) / blockSize.x, (m_size_y + blockSize.y - 1) / blockSize.y, 1);
         int sharedMemory = 2 * blockSize.x * blockSize.y * sizeof(float);
         multiplySharedMemoryKernel<<<gridSize, blockSize, sharedMemory>>>(getDeviceData(),
-                                   tensor.getDeviceData(),
+                                   tensor->getDeviceData(),
                                   m_size_x,
                                   m_size_y,
-                                   tensor.getSize(X),
-                                   tensor.getSize(Y),
-                                   output.getDeviceData());
+                                   tensor->getSize(X),
+                                   tensor->getSize(Y),
+                                   output->getDeviceData());
     }
     else
     {
         int num_threads = Config::multiplyBlockSize;
         int num_blocks_x = Config::numBlocks == -1
-                            ? (tensor.getSize(X) + num_threads - 1) / num_threads
+                            ? (tensor->getSize(X) + num_threads - 1) / num_threads
                             : Config::numBlocks;
         int num_blocks_y = Config::numBlocks == -1
         ? (m_size_y + num_threads - 1) / num_threads
         : Config::numBlocks;   
-        int fields_per_block_x = max(1, (tensor.getSize(X) + num_blocks_x - 1) / num_blocks_x);
+        int fields_per_block_x = max(1, (tensor->getSize(X) + num_blocks_x - 1) / num_blocks_x);
         int fields_per_block_y = max(1, (getSize(Y) + num_blocks_y - 1) / num_blocks_y);
         int fields_per_thread_x = max(1, (fields_per_block_x + num_threads - 1) / num_threads);
         int fields_per_thread_y = max(1, (fields_per_block_y + num_threads - 1) / num_threads);
@@ -468,58 +468,58 @@ void Tensor::mul(Tensor& tensor, Tensor& output)
         dim3 gridSize(num_blocks_x, num_blocks_y, 1);
         dim3 blockSize(num_threads, num_threads, 1);
         multiplyKernel<<<gridSize, blockSize>>>(getDeviceData(), 
-                       tensor.getDeviceData(),
+                       tensor->getDeviceData(),
                       m_size_x, 
                       m_size_y,
-                       tensor.getSize(X), 
-                       tensor.getSize(Y),
+                       tensor->getSize(X), 
+                       tensor->getSize(Y),
                        fields_per_block_x,
                        fields_per_block_y,
                        fields_per_thread_x,
                        fields_per_thread_y,
-                       output.getDeviceData());
+                       output->getDeviceData());
     }
 }
 
-void Tensor::mulTranspose(Tensor& tensor, Tensor& output)
+void Tensor::mulTranspose(Tensor* tensor, Tensor* output)
 {
-    if (m_size_x != tensor.getSize(X))
+    if (m_size_x != tensor->getSize(X))
     {
-        printf("first dim of the first tensor has to be equal to the first dim of the second tensor. Got: "
-              "[%d, %d], [%d, %d]\n", m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
+        printf("first dim of the first tensor has to be equal to the first dim of the second tensor-> Got: "
+              "[%d, %d], [%d, %d]\n", m_size_x, m_size_y, tensor->getSize(X), tensor->getSize(Y));
         exit(1);
     }
-    if(Config::sharedMemory == 1 && m_size_x > m_size_y && tensor.getSize(X) > tensor.getSize(Y))
+    if(Config::sharedMemory == 1 && m_size_x > m_size_y && tensor->getSize(X) > tensor->getSize(Y))
     {
         printf("mulTranspose does not support shared memory if first dim is greater than second dim "
                "Got: Tensor1: [%d, %d],  Tensor2: [%d, %d].\nGlobal memory will be used!\n",
-                m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
+                m_size_x, m_size_y, tensor->getSize(X), tensor->getSize(Y));
     }
 
-    if (Config::sharedMemory == 1 && m_size_x <= m_size_y && tensor.getSize(X) <= tensor.getSize(Y))
+    if (Config::sharedMemory == 1 && m_size_x <= m_size_y && tensor->getSize(X) <= tensor->getSize(Y))
     {
         dim3 blockSize(Config::multiplyBlockSize, Config::multiplyBlockSize, 1);
-        dim3 gridSize((tensor.getSize(Y) + blockSize.x - 1) / blockSize.x, (m_size_y + blockSize.y - 1) / blockSize.y, 1);
+        dim3 gridSize((tensor->getSize(Y) + blockSize.x - 1) / blockSize.x, (m_size_y + blockSize.y - 1) / blockSize.y, 1);
         int sharedMemory = 2 * blockSize.x * blockSize.y * sizeof(float);
 
         multiplyByTranposeSharedMemoryKernel<<<gridSize, blockSize, sharedMemory>>>(getDeviceData(),
-                                   tensor.getDeviceData(),
+                                   tensor->getDeviceData(),
                                   m_size_x,
                                   m_size_y,
-                                   tensor.getSize(X),
-                                   tensor.getSize(Y),
-                                   output.getDeviceData());
+                                   tensor->getSize(X),
+                                   tensor->getSize(Y),
+                                   output->getDeviceData());
     }
     else
     {
         int num_threads = Config::multiplyBlockSize;
         int num_blocks_x = Config::numBlocks == -1
-                            ? (tensor.getSize(Y) + num_threads - 1) / num_threads
+                            ? (tensor->getSize(Y) + num_threads - 1) / num_threads
                             : Config::numBlocks;
         int num_blocks_y = Config::numBlocks == -1
         ? (m_size_y + num_threads - 1) / num_threads
         : Config::numBlocks;   
-        int fields_per_block_x = max(1, (tensor.getSize(Y) + num_blocks_x - 1) / num_blocks_x);
+        int fields_per_block_x = max(1, (tensor->getSize(Y) + num_blocks_x - 1) / num_blocks_x);
         int fields_per_block_y = max(1, (m_size_y + num_blocks_y - 1) / num_blocks_y);
         int fields_per_thread_x = max(1, (fields_per_block_x + num_threads - 1) / num_threads);
         int fields_per_thread_y = max(1, (fields_per_block_y + num_threads - 1) / num_threads);
@@ -527,59 +527,59 @@ void Tensor::mulTranspose(Tensor& tensor, Tensor& output)
         dim3 gridSize(num_blocks_x, num_blocks_y, 1);
         dim3 blockSize(num_threads, num_threads, 1);
         multiplyByTranposeKernel<<<gridSize, blockSize>>>(getDeviceData(), 
-                       tensor.getDeviceData(),
+                       tensor->getDeviceData(),
                        m_size_x, 
                        m_size_y,
-                       tensor.getSize(X), 
-                       tensor.getSize(Y),
+                       tensor->getSize(X), 
+                       tensor->getSize(Y),
                        fields_per_block_x,
                        fields_per_block_y,
                        fields_per_thread_x,
                        fields_per_thread_y,
-                       output.getDeviceData());
+                       output->getDeviceData());
     }
 }
 
-void Tensor::transposeMul(Tensor& tensor, Tensor& output)
+void Tensor::transposeMul(Tensor* tensor, Tensor* output)
 {
-    if (m_size_y != tensor.getSize(Y))
+    if (m_size_y != tensor->getSize(Y))
     {
-        printf("second dim of the first tensor has to be equal to the second dim of the second tensor. Got: "
-              "[%d, %d], [%d, %d]\n", m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
+        printf("second dim of the first tensor has to be equal to the second dim of the second tensor-> Got: "
+              "[%d, %d], [%d, %d]\n", m_size_x, m_size_y, tensor->getSize(X), tensor->getSize(Y));
         exit(1);
     }
 
-    if(Config::sharedMemory == 1 && m_size_x < m_size_y && tensor.getSize(X) < tensor.getSize(Y))
+    if(Config::sharedMemory == 1 && m_size_x < m_size_y && tensor->getSize(X) < tensor->getSize(Y))
     {
         printf("transposeMul does not support shared memory if second dim is greater than first dim "
                "Got: Tensor1: [%d, %d],  Tensor2: [%d, %d].\nGlobal memory will be used!\n",
-                m_size_x, m_size_y, tensor.getSize(X), tensor.getSize(Y));
+                m_size_x, m_size_y, tensor->getSize(X), tensor->getSize(Y));
     }
 
-    if (Config::sharedMemory == 1 && m_size_x >= m_size_y && tensor.getSize(X) >= tensor.getSize(Y))
+    if (Config::sharedMemory == 1 && m_size_x >= m_size_y && tensor->getSize(X) >= tensor->getSize(Y))
     {
         dim3 blockSize(Config::multiplyBlockSize, Config::multiplyBlockSize, 1);
-        dim3 gridSize((tensor.getSize(X) + blockSize.x - 1) / blockSize.x, (m_size_x + blockSize.y - 1) / blockSize.y, 1);
+        dim3 gridSize((tensor->getSize(X) + blockSize.x - 1) / blockSize.x, (m_size_x + blockSize.y - 1) / blockSize.y, 1);
         int sharedMemory = 2 * blockSize.x * blockSize.y * sizeof(float);
 
        tranposeMultiplySharedMemoryKernel<<<gridSize, blockSize, sharedMemory>>>(getDeviceData(),
-                                   tensor.getDeviceData(),
+                                   tensor->getDeviceData(),
                                    m_size_x,
                                    m_size_y,
-                                   tensor.getSize(X),
-                                   tensor.getSize(Y),
-                                   output.getDeviceData());
+                                   tensor->getSize(X),
+                                   tensor->getSize(Y),
+                                   output->getDeviceData());
     }
     else
     {
         int num_threads = Config::multiplyBlockSize;
         int num_blocks_x = Config::numBlocks == -1
-                            ? (tensor.getSize(X) + num_threads - 1) / num_threads
+                            ? (tensor->getSize(X) + num_threads - 1) / num_threads
                             : Config::numBlocks;
         int num_blocks_y = Config::numBlocks == -1
         ? (m_size_x + num_threads - 1) / num_threads
         : Config::numBlocks;   
-        int fields_per_block_x = max(1, (tensor.getSize(X) + num_blocks_x - 1) / num_blocks_x);
+        int fields_per_block_x = max(1, (tensor->getSize(X) + num_blocks_x - 1) / num_blocks_x);
         int fields_per_block_y = max(1, (getSize(X) + num_blocks_y - 1) / num_blocks_y);
         int fields_per_thread_x = max(1, (fields_per_block_x + num_threads - 1) / num_threads);
         int fields_per_thread_y = max(1, (fields_per_block_y + num_threads - 1) / num_threads);
@@ -587,25 +587,25 @@ void Tensor::transposeMul(Tensor& tensor, Tensor& output)
         dim3 gridSize(num_blocks_x, num_blocks_y, 1);
         dim3 blockSize(num_threads, num_threads, 1);
         transposeMultiplyKernel<<<gridSize, blockSize>>>(getDeviceData(), 
-                       tensor.getDeviceData(),
+                       tensor->getDeviceData(),
                        m_size_x, 
                        m_size_y,
-                       tensor.getSize(X), 
-                       tensor.getSize(Y),
+                       tensor->getSize(X), 
+                       tensor->getSize(Y),
                        fields_per_block_x,
                        fields_per_block_y,
                        fields_per_thread_x,
                        fields_per_thread_y,
-                       output.getDeviceData());
+                       output->getDeviceData());
     }
 }
 
-void Tensor::meanX(Tensor& output)
+void Tensor::meanX(Tensor* output)
 {
     int blockSize = Config::meanBlockSize;
     int gridSize = (m_size_x + blockSize - 1) / blockSize;
     meanXKernel<<<gridSize, blockSize>>>(getDeviceData(),
                                          m_size_x,
                                          m_size_y,
-                                         output.getDeviceData());
+                                         output->getDeviceData());
 }

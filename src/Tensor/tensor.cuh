@@ -30,13 +30,13 @@ public:
     float* getDeviceData(); 
     void fetchDeviceData(float** ptr);
 
-    void add(Tensor& tensor);
-    void subtract(Tensor& tensor);
+    void add(Tensor* tensor);
+    void subtract(Tensor* tensor);
     void scale(float factor);
-    void mul(Tensor& tensor, Tensor& output);
-    void mulTranspose(Tensor& tensor, Tensor& output);
-    void transposeMul(Tensor& tensor, Tensor& output);
-    void meanX(Tensor& output);
+    void mul(Tensor* tensor, Tensor* output);
+    void mulTranspose(Tensor* tensor, Tensor* output);
+    void transposeMul(Tensor* tensor, Tensor* output);
+    void meanX(Tensor* output);
     void debug();
 
 private: 
