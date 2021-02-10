@@ -17,6 +17,7 @@ public:
     static int scaleBlockSize;
     static int multiplyBlockSize;
     static int meanBlockSize;
+    static int sumBlockSize;
     static int sharedMemory;
     static int numBlocks;
 

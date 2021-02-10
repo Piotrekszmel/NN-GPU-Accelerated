@@ -5,6 +5,7 @@ int Config::subtractBlockSize = 8;
 int Config::scaleBlockSize = 8;
 int Config::multiplyBlockSize = 8;
 int Config::meanBlockSize = 8;
+int Config::sumBlockSize = 8;
 int Config::sharedMemory = 0;
 int Config::numBlocks = -1;
 
@@ -46,6 +47,7 @@ void Config::printConfig()
     printf(" ScaleBlockSize: %d\n", Config::scaleBlockSize);
     printf(" MultiplyBlockSize: %d\n", Config::multiplyBlockSize);
     printf(" MeanBlockSize: %d\n", Config::meanBlockSize);
+    printf(" SumBlockSize: %d\n", Config::sumBlockSize);
     printf(" SharedMemory: %d\n", Config::sharedMemory);
     printf(" numBlocks: %d\n", Config::numBlocks);
     printf("=====================================\n");
@@ -81,6 +83,7 @@ void Config::printCudaConfig()
     printf(" ScaleBlockSize: %d\n", Config::scaleBlockSize);
     printf(" MultiplyBlockSize: %d\n", Config::multiplyBlockSize);
     printf(" MeanBlockSize: %d\n", Config::meanBlockSize);
+    printf(" SumBlockSize: %d\n", Config::sumBlockSize);
     printf(" SharedMemory: %d\n", Config::sharedMemory);
     printf(" numBlocks: %d\n", Config::numBlocks);
 
