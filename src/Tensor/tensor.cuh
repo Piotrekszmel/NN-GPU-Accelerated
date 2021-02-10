@@ -37,6 +37,7 @@ public:
     void mulTranspose(Tensor* tensor, Tensor* output);
     void transposeMul(Tensor* tensor, Tensor* output);
     void meanX(Tensor* output);
+    void sumX(Tensor* output);
     void debug();
 
 private: 
