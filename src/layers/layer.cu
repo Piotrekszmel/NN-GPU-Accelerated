@@ -2,20 +2,20 @@
 
 Tensor* Layer::getWeights()
 {
-    return this->m_weights;
+    return m_weights;
 }
 
 Tensor* Layer::getBias()
 {
-    return this->m_bias;
+    return m_bias;
 }
 
 Tensor* Layer::getDeltaWeights()
 {
-    return this->m_delta_weights;
+    return m_delta_weights;
 }
 
 Tensor* Layer::getDeltaBias()
 {
-    return this->m_delta_bias;
+    return m_delta_bias;
 }

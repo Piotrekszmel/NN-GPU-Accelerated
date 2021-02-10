@@ -15,7 +15,7 @@ public:
     Tensor* getDeltaBias();
 
     virtual Tensor* forward(Tensor* data) = 0;
-    //virtual Tensor* backward(Tensor gradients) = 0;
+    virtual Tensor* backward(Tensor* gradients) = 0;
 
 protected:
     Tensor* m_weights;

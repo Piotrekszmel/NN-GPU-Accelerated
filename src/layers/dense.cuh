@@ -15,9 +15,9 @@ public:
     Tensor* backward(Tensor* gradients);
 
 private:
-    Tensor* in_data;
-    Tensor* out_forward;
-    Tensor* out_backward;
+    Tensor* m_in_data;
+    Tensor* m_z;
+    Tensor* m_gradients;
 
     int m_input_size;
     int m_output_size;

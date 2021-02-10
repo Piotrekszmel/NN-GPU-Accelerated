@@ -17,12 +17,12 @@ Dense::Dense(int input_size, int output_size)
         }
     }
 
-    this->m_weights = new Tensor(initWeights, m_output_size, m_input_size, HostToDevice);
-    this->m_bias = new Tensor(initBias, m_output_size);
-    this->m_delta_weights = NULL;
-    this->m_delta_bias = NULL;
-    this->out_forward = NULL;
-    this->out_backward = NULL;
+    m_weights = new Tensor(initWeights, m_output_size, m_input_size, HostToDevice);
+    m_bias = new Tensor(initBias, m_output_size);
+    m_delta_weights = NULL;
+    m_delta_bias = NULL;
+    m_z = NULL;
+    m_gradients = NULL;
 
     delete[] initWeights;
     delete[] initBias;
@@ -30,15 +30,37 @@ Dense::Dense(int input_size, int output_size)
 
 Tensor* Dense::forward(Tensor* data)
 {
-    this->in_data = data;
-    if (this->out_forward == NULL)
+    m_in_data = data;
+    if (m_z == NULL)
     {
-        this->out_forward = new Tensor(this->m_weights->getSize(X),
-                                       this->in_data->getSize(Y));
+        m_z = new Tensor(m_weights->getSize(X),
+                                    m_in_data->getSize(Y));
     }
 
-    this->in_data->mul(this->m_weights, this->out_forward);
-    this->out_forward->add(this->m_bias);
+    m_in_data->mul(m_weights, m_z);
+    m_z->add(m_bias);
 
-    return this->out_forward;
+    return m_z;
+}
+
+Tensor* Dense::backward(Tensor* gradients)
+{
+    if (m_delta_weights == NULL)
+    {
+        m_delta_weights = new Tensor(gradients->getSize(X),
+                                        m_in_data->getSize(X));
+    }
+    if (m_delta_bias == NULL)
+    {
+        m_delta_bias = new Tensor(gradients->getSize(X));
+    }
+    m_in_data->transposeMul(gradients, m_delta_weights);
+    gradients->sumX(m_delta_bias);
+
+    if (m_gradients == NULL)
+    {
+        m_gradients = new Tensor(m_weights->getSize(Y), gradients->getSize(Y));
+    }
+    gradients->mulTranspose(m_weights, m_gradients);
+    return m_gradients;
 }
