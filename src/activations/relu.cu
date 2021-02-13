@@ -42,7 +42,7 @@ ReLU::ReLU()
     m_gradients = NULL;
 }
 
-Tensor* ReLU::activation(Tensor* data)
+Tensor* ReLU::forward(Tensor* data)
 {
     if (m_a == NULL)
     {
@@ -59,7 +59,7 @@ Tensor* ReLU::activation(Tensor* data)
     return m_a;
 }
 
-Tensor* ReLU::derivative(Tensor* gradients)
+Tensor* ReLU::backward(Tensor* gradients)
 {
     if (m_gradients == NULL)
     {
