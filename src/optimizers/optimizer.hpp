@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "../Tensor/tensor.cuh"
+#include "../layers/layer.cuh"
 
 class Optimizer
 {
